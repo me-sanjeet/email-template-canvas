@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useEditor, CanvasElement as ElementType } from '@/context/EditorContext';
 
@@ -73,6 +74,47 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, isSelected }) =>
     window.removeEventListener('mouseup', handleMouseUp);
   };
 
+  // Add touch event handlers for mobile support
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    
+    if (!isSelected) {
+      selectElement(element.id);
+      return;
+    }
+    
+    if ((e.target as HTMLElement).classList.contains('resize-handle')) {
+      handleTouchResizeStart(e);
+      return;
+    }
+    
+    // Start dragging
+    setIsDragging(true);
+    setStartPos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    
+    // No need to add listeners as they're handled by the element's touch events
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault(); // Prevent scrolling while dragging
+    
+    if (isDragging) {
+      const dx = e.touches[0].clientX - startPos.x;
+      const dy = e.touches[0].clientY - startPos.y;
+      
+      moveElement(element.id, element.x + dx, element.y + dy);
+      setStartPos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    } else if (isResizing && resizeDirection) {
+      handleTouchResize(e);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    setIsResizing(false);
+    setResizeDirection(null);
+  };
+
   const handleResizeStart = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -97,6 +139,27 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, isSelected }) =>
     // Add event listeners for resize
     window.addEventListener('mousemove', handleResize);
     window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleTouchResizeStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    setIsResizing(true);
+    
+    // Determine which handle was grabbed
+    const target = e.target as HTMLElement;
+    setResizeDirection(target.dataset.direction || null);
+    
+    // Set starting position
+    setStartPos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    
+    // Store the current element size
+    if (elementRef.current) {
+      const style = window.getComputedStyle(elementRef.current);
+      setStartSize({
+        width: parseFloat(style.width),
+        height: parseFloat(style.height),
+      });
+    }
   };
 
   const handleResize = (e: MouseEvent) => {
@@ -131,7 +194,43 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, isSelected }) =>
     // Update element style with new dimensions
     updateElementStyle(element.id, {
       width: `${newWidth}px`,
-      height: element.type !== 'text' && element.type !== 'heading' ? `${newHeight}px` : undefined,
+      height: element.type !== 'text' && element.type !== 'heading' ? `${newHeight}px` : 'auto' as any,
+    });
+  };
+
+  const handleTouchResize = (e: React.TouchEvent) => {
+    if (!isResizing || !resizeDirection) return;
+    
+    const dx = e.touches[0].clientX - startPos.x;
+    const dy = e.touches[0].clientY - startPos.y;
+    
+    let newWidth = startSize.width;
+    let newHeight = startSize.height;
+    
+    // Update width based on direction
+    if (resizeDirection.includes('e')) {
+      newWidth = Math.max(20, startSize.width + dx);
+    } else if (resizeDirection.includes('w')) {
+      newWidth = Math.max(20, startSize.width - dx);
+      if (newWidth !== startSize.width) {
+        moveElement(element.id, element.x + (startSize.width - newWidth), element.y);
+      }
+    }
+    
+    // Update height based on direction
+    if (resizeDirection.includes('s')) {
+      newHeight = Math.max(20, startSize.height + dy);
+    } else if (resizeDirection.includes('n')) {
+      newHeight = Math.max(20, startSize.height - dy);
+      if (newHeight !== startSize.height) {
+        moveElement(element.id, element.x, element.y + (startSize.height - newHeight));
+      }
+    }
+    
+    // Update element style with new dimensions
+    updateElementStyle(element.id, {
+      width: `${newWidth}px`,
+      height: element.type !== 'text' && element.type !== 'heading' ? `${newHeight}px` : 'auto' as any,
     });
   };
 
@@ -212,6 +311,9 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, isSelected }) =>
       className={`canvas-element ${isSelected ? 'selected' : ''}`}
       style={getInlineStyle()}
       onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {renderElement()}
       
@@ -222,21 +324,25 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, isSelected }) =>
             className="resize-handle resize-handle-nw"
             data-direction="nw"
             onMouseDown={handleResizeStart}
+            onTouchStart={handleTouchResizeStart}
           />
           <div 
             className="resize-handle resize-handle-ne"
             data-direction="ne"
             onMouseDown={handleResizeStart}
+            onTouchStart={handleTouchResizeStart}
           />
           <div 
             className="resize-handle resize-handle-sw"
             data-direction="sw"
             onMouseDown={handleResizeStart}
+            onTouchStart={handleTouchResizeStart}
           />
           <div 
             className="resize-handle resize-handle-se"
             data-direction="se"
             onMouseDown={handleResizeStart}
+            onTouchStart={handleTouchResizeStart}
           />
         </>
       )}
