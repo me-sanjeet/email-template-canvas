@@ -16,7 +16,6 @@ const DraggableItem: React.FC<DraggableItemProps> = ({ icon, label, type }) => {
   const { addElement } = useEditor();
   const touchTimeoutRef = useRef<number | null>(null);
   const initialTouchRef = useRef<{ x: number, y: number } | null>(null);
-  // Add ref for storing last tap time
   const lastTapRef = useRef<number>(0);
 
   const handleDragStart = (e: React.DragEvent) => {

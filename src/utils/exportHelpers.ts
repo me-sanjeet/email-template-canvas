@@ -14,12 +14,12 @@ export const convertStyleToInline = (style: ElementStyle): string => {
 };
 
 // Generate HTML for an element
-export const elementToHtml = (element: CanvasElement): string => {
+export const elementToHtml = (element: CanvasElement, childrenHtml = ''): string => {
   const styleString = convertStyleToInline(element.style);
   
   switch (element.type) {
     case 'box':
-      return `<div style="${styleString}"></div>`;
+      return `<div style="${styleString}">${childrenHtml}</div>`;
     case 'text':
       return `<p style="${styleString}">${element.content}</p>`;
     case 'heading':
@@ -37,16 +37,24 @@ export const elementToHtml = (element: CanvasElement): string => {
 
 // Generate full HTML document
 export const generateEmailHtml = (elements: CanvasElement[]): string => {
-  // Sort elements by position for better layout
-  const sortedElements = [...elements].sort((a, b) => {
-    // Sort by Y position first, then X position
+  // Create a structured representation of the elements
+  const topLevelElements = elements.filter(el => !el.parentId);
+  
+  const renderElement = (element: CanvasElement): string => {
+    const children = elements.filter(el => el.parentId === element.id);
+    const childrenHtml = children.map(renderElement).join('\n  ');
+    return elementToHtml(element, childrenHtml);
+  };
+  
+  // Sort top-level elements by Y position and then X position
+  const sortedElements = [...topLevelElements].sort((a, b) => {
     if (a.y !== b.y) {
       return a.y - b.y;
     }
     return a.x - b.x;
   });
-
-  const elementsHtml = sortedElements.map(elementToHtml).join('\n  ');
+  
+  const elementsHtml = sortedElements.map(renderElement).join('\n  ');
   
   return `<!DOCTYPE html>
 <html>

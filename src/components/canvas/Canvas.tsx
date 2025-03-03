@@ -9,8 +9,8 @@ const Canvas: React.FC = () => {
   const { elements, addElement, selectElement, selectedElement, canvasScale } = useEditor();
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
+  // Detect clicks on the canvas itself (not on elements) to deselect
   const handleCanvasClick = (e: React.MouseEvent) => {
-    // If clicking directly on the canvas (not on an element), deselect
     if (e.target === canvasRef.current) {
       selectElement(null);
     }
@@ -43,13 +43,13 @@ const Canvas: React.FC = () => {
     const x = (e.clientX - canvasRect.left + scrollLeft) / canvasScale;
     const y = (e.clientY - canvasRect.top + scrollTop) / canvasScale;
     
+    // Add element at the drop position
     addElement(elementType, x, y);
     toast.success(`Element added successfully!`);
   };
 
-  // Set up a visual indicator for mobile users
+  // Set up a visual indicator for mobile users when canvas is empty
   useEffect(() => {
-    // Add a pulsing indicator when the canvas is empty
     if (elements.length === 0) {
       const pulseDot = document.createElement('div');
       pulseDot.id = 'canvas-pulse-indicator';
@@ -76,6 +76,12 @@ const Canvas: React.FC = () => {
     }
   }, [elements.length]);
 
+  // Create a hierarchy of elements to render
+  // First render box elements that can contain other elements
+  const boxElements = elements.filter(el => el.type === 'box' && !el.parentId);
+  // Then render non-box top level elements
+  const topLevelNonBoxElements = elements.filter(el => el.type !== 'box' && !el.parentId);
+
   return (
     <div className="h-full flex items-center justify-center p-4 overflow-auto">
       <div 
@@ -94,7 +100,17 @@ const Canvas: React.FC = () => {
         }}
         data-canvas-drop-area="true" // Add data attribute for identifying canvas in touch handlers
       >
-        {elements.map((element) => (
+        {/* Render box elements first */}
+        {boxElements.map((element) => (
+          <CanvasElement
+            key={element.id}
+            element={element}
+            isSelected={selectedElement?.id === element.id}
+          />
+        ))}
+        
+        {/* Render non-box top level elements */}
+        {topLevelNonBoxElements.map((element) => (
           <CanvasElement
             key={element.id}
             element={element}
@@ -124,6 +140,7 @@ const Canvas: React.FC = () => {
             <p>Click to select elements</p>
             <p className="hidden md:block">Drag to move elements</p>
             <p className="md:hidden">Tap+hold to move elements</p>
+            <p>Drop elements onto boxes to nest them</p>
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { convertStyleToInline, elementToHtml } from '../utils/exportHelpers';
 
 export type ElementType = 'box' | 'text' | 'heading' | 'image' | 'button' | 'divider';
 
@@ -21,6 +22,7 @@ export interface ElementStyle {
   letterSpacing?: string;
   textDecoration?: string;
   opacity?: string;
+  overflow?: string;
   [key: string]: string | undefined;
 }
 
@@ -46,6 +48,8 @@ interface EditorContextType {
   exportHtml: () => string;
   canvasScale: number;
   setCanvasScale: (scale: number) => void;
+  setElementParent: (elementId: string, parentId: string | undefined) => void;
+  getElementChildren: (parentId: string) => CanvasElement[];
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -81,6 +85,7 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children }) => {
           borderColor: '#e5e7eb',
           borderRadius: '4px',
           padding: '16px',
+          overflow: 'visible',
         };
       case 'text':
         return {
@@ -101,6 +106,7 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children }) => {
           width: '200px',
           height: 'auto',
           borderRadius: '4px',
+          overflow: 'hidden', // Add overflow hidden for images with border radius
         };
       case 'button':
         return {
@@ -140,6 +146,32 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children }) => {
     }
   };
 
+  // Check if an element is inside a box
+  const isElementOverBox = (x: number, y: number): string | undefined => {
+    // Only boxes can be parents
+    const boxes = elements.filter(el => el.type === 'box');
+    
+    // Check each box from top to bottom of the stack (reverse of rendering order)
+    for (let i = boxes.length - 1; i >= 0; i--) {
+      const box = boxes[i];
+      const boxX = box.x;
+      const boxY = box.y;
+      const boxWidth = parseInt(box.style.width || '0', 10);
+      const boxHeight = parseInt(box.style.height || '0', 10);
+      
+      if (
+        x >= boxX && 
+        x <= boxX + boxWidth && 
+        y >= boxY && 
+        y <= boxY + boxHeight
+      ) {
+        return box.id;
+      }
+    }
+    
+    return undefined;
+  };
+
   const addElement = useCallback((type: ElementType, x: number, y: number) => {
     const newElement: CanvasElement = {
       id: generateId(),
@@ -149,10 +181,18 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children }) => {
       x,
       y,
     };
+    
+    // Check if the new element is being placed over a box
+    if (type !== 'box') {
+      const parentId = isElementOverBox(x, y);
+      if (parentId) {
+        newElement.parentId = parentId;
+      }
+    }
 
     setElements((prev) => [...prev, newElement]);
     setSelectedElement(newElement);
-  }, []);
+  }, [elements]);
 
   const updateElement = useCallback((id: string, updates: Partial<CanvasElement>) => {
     setElements((prev) =>
@@ -166,7 +206,8 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children }) => {
   }, [selectedElement]);
 
   const deleteElement = useCallback((id: string) => {
-    setElements((prev) => prev.filter((element) => element.id !== id));
+    // Also remove any children elements
+    setElements((prev) => prev.filter((element) => element.id !== id && element.parentId !== id));
     
     // Deselect if the deleted element was selected
     if (selectedElement && selectedElement.id === id) {
@@ -185,12 +226,31 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children }) => {
   }, [elements]);
 
   const moveElement = useCallback((id: string, x: number, y: number) => {
+    const element = elements.find(el => el.id === id);
+    if (!element) return;
+    
+    // Check if the element is being moved over a box
+    let parentId: string | undefined = undefined;
+    if (element.type !== 'box') {
+      parentId = isElementOverBox(x, y);
+    }
+    
     setElements((prev) =>
-      prev.map((element) => (element.id === id ? { ...element, x, y } : element))
+      prev.map((element) => 
+        element.id === id ? { ...element, x, y, parentId } : element
+      )
     );
-  }, []);
+  }, [elements]);
 
   const updateElementStyle = useCallback((id: string, style: Partial<ElementStyle>) => {
+    // For images with border-radius, automatically add overflow: hidden
+    if (style.borderRadius) {
+      const element = elements.find(el => el.id === id);
+      if (element?.type === 'image') {
+        style.overflow = 'hidden';
+      }
+    }
+    
     setElements((prev) =>
       prev.map((element) =>
         element.id === id ? { ...element, style: { ...element.style, ...style } } : element
@@ -203,50 +263,60 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children }) => {
         prev ? { ...prev, style: { ...prev.style, ...style } } : prev
       );
     }
-  }, [selectedElement]);
+  }, [selectedElement, elements]);
 
-  const createCssString = (style: ElementStyle): string => {
-    return Object.entries(style)
-      .filter(([_, value]) => value !== undefined)
-      .map(([key, value]) => {
-        // Convert camelCase to kebab-case
-        const property = key.replace(/([A-Z])/g, '-$1').toLowerCase();
-        return `${property}: ${value};`;
-      })
-      .join(' ');
-  };
+  const setElementParent = useCallback((elementId: string, parentId: string | undefined) => {
+    setElements(prev => 
+      prev.map(element => 
+        element.id === elementId ? { ...element, parentId } : element
+      )
+    );
+  }, []);
 
-  const getElementHtml = (element: CanvasElement): string => {
-    const cssString = createCssString(element.style);
+  const getElementChildren = useCallback((parentId: string) => {
+    return elements.filter(element => element.parentId === parentId);
+  }, [elements]);
+
+  const getElementHtml = (element: CanvasElement, childrenHtml = ''): string => {
+    const styleString = convertStyleToInline(element.style);
     
     switch (element.type) {
       case 'box':
-        return `<div style="${cssString}"></div>`;
+        return `<div style="${styleString}">${childrenHtml}</div>`;
       case 'text':
-        return `<p style="${cssString}">${element.content}</p>`;
+        return `<p style="${styleString}">${element.content}</p>`;
       case 'heading':
-        return `<h2 style="${cssString}">${element.content}</h2>`;
+        return `<h2 style="${styleString}">${element.content}</h2>`;
       case 'image':
-        return `<img src="${element.content}" alt="Image" style="${cssString}" />`;
+        return `<img src="${element.content}" alt="Image" style="${styleString}" />`;
       case 'button':
-        return `<button style="${cssString}">${element.content}</button>`;
+        return `<button style="${styleString}">${element.content}</button>`;
       case 'divider':
-        return `<hr style="${cssString}" />`;
+        return `<hr style="${styleString}" />`;
       default:
         return '';
     }
   };
 
   const exportHtml = useCallback(() => {
-    const sortedElements = [...elements].sort((a, b) => {
-      // Sort by Y position first, then X position
+    // Create a structured representation of the elements
+    const topLevelElements = elements.filter(el => !el.parentId);
+    
+    const renderElement = (element: CanvasElement): string => {
+      const children = elements.filter(el => el.parentId === element.id);
+      const childrenHtml = children.map(renderElement).join('\n');
+      return getElementHtml(element, childrenHtml);
+    };
+    
+    // Sort top-level elements by Y position and then X position
+    const sortedElements = [...topLevelElements].sort((a, b) => {
       if (a.y !== b.y) {
         return a.y - b.y;
       }
       return a.x - b.x;
     });
-
-    const elementsHtml = sortedElements.map(getElementHtml).join('\n');
+    
+    const elementsHtml = sortedElements.map(renderElement).join('\n');
     
     const fullHtml = `<!DOCTYPE html>
 <html>
@@ -281,6 +351,8 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children }) => {
     exportHtml,
     canvasScale,
     setCanvasScale,
+    setElementParent,
+    getElementChildren,
   };
 
   return <EditorContext.Provider value={contextValue}>{children}</EditorContext.Provider>;
