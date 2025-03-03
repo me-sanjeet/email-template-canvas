@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { useEditor, ElementType } from '@/context/EditorContext';
 import CanvasElement from './CanvasElement';
@@ -48,6 +47,14 @@ const Canvas: React.FC = () => {
     toast.success(`Element added successfully!`);
   };
 
+  // Prevent default behavior on touchmove to avoid page refresh on pull down
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // Only prevent default if we're at the top of the page to avoid breaking normal scrolling
+    if (window.scrollY <= 0) {
+      e.preventDefault();
+    }
+  };
+
   // Set up a visual indicator for mobile users when canvas is empty
   useEffect(() => {
     if (elements.length === 0) {
@@ -74,6 +81,26 @@ const Canvas: React.FC = () => {
         }
       };
     }
+
+    // Add passive touchmove listener to the document to prevent pull-to-refresh
+    document.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 1) {
+        e.preventDefault(); // Prevent pinch zoom
+      }
+    }, { passive: false });
+
+    // Add double-tap prevention
+    document.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+    
+    return () => {
+      // Remove listeners on cleanup
+      document.removeEventListener('touchmove', (e) => {
+        if (e.touches.length > 1) e.preventDefault();
+      });
+      document.removeEventListener('dblclick', (e) => e.preventDefault());
+    };
   }, [elements.length]);
 
   // Create a hierarchy of elements to render
@@ -93,6 +120,7 @@ const Canvas: React.FC = () => {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onTouchMove={handleTouchMove}
         style={{
           transform: `scale(${canvasScale})`,
           transformOrigin: 'center top',

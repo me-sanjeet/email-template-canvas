@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useEditor, CanvasElement as ElementType } from '@/context/EditorContext';
 
@@ -74,7 +73,7 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, isSelected }) =>
     window.removeEventListener('mouseup', handleMouseUp);
   };
 
-  // Add touch event handlers for mobile support
+  // Add touch event handlers for mobile support with prevent default
   const handleTouchStart = (e: React.TouchEvent) => {
     e.stopPropagation();
     
@@ -92,11 +91,13 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, isSelected }) =>
     setIsDragging(true);
     setStartPos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
     
-    // No need to add listeners as they're handled by the element's touch events
+    // Prevent default to avoid any potential page refresh or other browser behaviors
+    e.preventDefault();
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    e.preventDefault(); // Prevent scrolling while dragging
+    // Always prevent default to avoid page scrolling while dragging
+    e.preventDefault();
     
     if (isDragging) {
       const dx = e.touches[0].clientX - startPos.x;
@@ -109,7 +110,9 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, isSelected }) =>
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    // Prevent default to ensure no unintended browser actions
+    e.preventDefault();
     setIsDragging(false);
     setIsResizing(false);
     setResizeDirection(null);

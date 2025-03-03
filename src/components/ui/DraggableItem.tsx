@@ -41,7 +41,10 @@ const DraggableItem: React.FC<DraggableItemProps> = ({ icon, label, type }) => {
   };
 
   // Double click to add at center of canvas
-  const handleDoubleClick = () => {
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    // Prevent default behavior to avoid zooming on mobile
+    e.preventDefault();
+    
     // Add at center of canvas (approximate)
     const x = 300 - 100; // Roughly center of canvas width (600/2) - half element width
     const y = 200; // Arbitrary position in the visible area
@@ -70,7 +73,8 @@ const DraggableItem: React.FC<DraggableItemProps> = ({ icon, label, type }) => {
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isTouchDragging || !initialTouchRef.current) return;
     
-    e.preventDefault(); // Prevent scrolling while dragging
+    // Prevent default behavior to stop page scrolling and refreshing
+    e.preventDefault();
     
     // Find the canvas element
     const canvas = document.querySelector('[data-canvas-drop-area="true"]');
@@ -148,6 +152,9 @@ const DraggableItem: React.FC<DraggableItemProps> = ({ icon, label, type }) => {
           // Add the element to the canvas
           addElement(type, x, y);
           toast.success(`Added ${label} element`);
+          
+          // Prevent default to avoid page refresh on mobile
+          e.preventDefault();
         }
       }
       
@@ -162,7 +169,7 @@ const DraggableItem: React.FC<DraggableItemProps> = ({ icon, label, type }) => {
       const lastTap = lastTapRef.current || 0;
       
       if (now - lastTap < 300) { // Double tap
-        handleDoubleClick();
+        handleDoubleClick(e as unknown as React.MouseEvent);
       }
       
       lastTapRef.current = now;
