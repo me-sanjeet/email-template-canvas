@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Box, Type, Heading, Image, ButtonIcon, MinusIcon } from 'lucide-react';
+import { Box, Type, Heading, Image, Button as ButtonIcon, Minus as MinusIcon } from 'lucide-react';
 import DraggableItem from '../ui/DraggableItem';
 import { Separator } from '@/components/ui/separator';
 import { ElementType } from '@/context/EditorContext';

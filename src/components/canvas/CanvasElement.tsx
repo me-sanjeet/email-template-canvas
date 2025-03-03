@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useEditor, CanvasElement as ElementType } from '@/context/EditorContext';
 
@@ -198,7 +197,7 @@ const CanvasElement: React.FC<CanvasElementProps> = ({ element, isSelected }) =>
       ...Object.entries(element.style).reduce((acc, [key, value]) => {
         if (value !== undefined) {
           // Convert camelCase to CSS property name
-          acc[key as keyof React.CSSProperties] = value;
+          acc[key as keyof React.CSSProperties] = value as any;
         }
         return acc;
       }, {} as React.CSSProperties),
