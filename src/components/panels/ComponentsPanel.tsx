@@ -1,17 +1,18 @@
 
 import React from 'react';
-import { Box, Type, Heading, Image, Button as LucideButton, MinusHorizontal } from 'lucide-react';
+import { Box, Type, Heading, Image, ButtonIcon, MinusIcon } from 'lucide-react';
 import DraggableItem from '../ui/DraggableItem';
 import { Separator } from '@/components/ui/separator';
+import { ElementType } from '@/context/EditorContext';
 
 const ComponentsPanel: React.FC = () => {
   const components = [
-    { icon: <Box size={20} />, label: 'Box', type: 'box' },
-    { icon: <Type size={20} />, label: 'Text', type: 'text' },
-    { icon: <Heading size={20} />, label: 'Heading', type: 'heading' },
-    { icon: <Image size={20} />, label: 'Image', type: 'image' },
-    { icon: <LucideButton size={20} />, label: 'Button', type: 'button' },
-    { icon: <MinusHorizontal size={20} />, label: 'Divider', type: 'divider' },
+    { icon: <Box size={20} />, label: 'Box', type: 'box' as ElementType },
+    { icon: <Type size={20} />, label: 'Text', type: 'text' as ElementType },
+    { icon: <Heading size={20} />, label: 'Heading', type: 'heading' as ElementType },
+    { icon: <Image size={20} />, label: 'Image', type: 'image' as ElementType },
+    { icon: <ButtonIcon size={20} />, label: 'Button', type: 'button' as ElementType },
+    { icon: <MinusIcon size={20} />, label: 'Divider', type: 'divider' as ElementType },
   ];
 
   return (
