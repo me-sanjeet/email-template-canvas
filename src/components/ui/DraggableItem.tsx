@@ -16,6 +16,8 @@ const DraggableItem: React.FC<DraggableItemProps> = ({ icon, label, type }) => {
   const { addElement } = useEditor();
   const touchTimeoutRef = useRef<number | null>(null);
   const initialTouchRef = useRef<{ x: number, y: number } | null>(null);
+  // Add ref for storing last tap time
+  const lastTapRef = useRef<number>(0);
 
   const handleDragStart = (e: React.DragEvent) => {
     setIsDragging(true);
@@ -158,13 +160,13 @@ const DraggableItem: React.FC<DraggableItemProps> = ({ icon, label, type }) => {
     } else if (!isTouchDragging && initialTouchRef.current) {
       // This was a tap, not a drag - check if it was a double tap
       const now = new Date().getTime();
-      const lastTap = parseInt(this.getAttribute('data-last-tap') || '0');
+      const lastTap = lastTapRef.current || 0;
       
       if (now - lastTap < 300) { // Double tap
         handleDoubleClick();
       }
       
-      this.setAttribute('data-last-tap', now.toString());
+      lastTapRef.current = now;
     }
     
     setIsTouchDragging(false);
